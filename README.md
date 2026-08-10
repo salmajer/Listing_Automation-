@@ -296,7 +296,7 @@ N8N_PROXY_HOPS=1" \
 N8N_ENCRYPTION_KEY=n8n-encryption-key:latest" \
   --allow-unauthenticated
 ```
-> The original env-vars string was missing its closing quote before `--set-secrets` — fixed above.
+
 
 ### 6.6 Set the final host URL
 Once deployed, grab the service URL and re-run to register it with n8n itself:
