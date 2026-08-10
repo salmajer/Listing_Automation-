@@ -1,0 +1,1223 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Store Onboarding",
+        "formDescription": "Fill in the details to onboard a new store",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Store Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "WC API Key",
+              "fieldType": "password",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "WC API Secret",
+              "fieldType": "password",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Store Owner Google Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Default Status",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "draft"
+                  },
+                  {
+                    "option": "publish"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -1104,
+        144
+      ],
+      "name": "Store Onboarding Form",
+      "webhookId": "a19890bd-7e33-41ad-b57a-8f53a3d75023",
+      "id": "b6626e8f-8011-4904-9e6b-3b3ea2a89eae",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "=Product Uploads_{{ $('Store Onboarding Form').item.json['Store Name'] }}"
+            },
+            {
+              "name": "mimeType",
+              "value": "application/vnd.google-apps.folder"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -752,
+        256
+      ],
+      "name": "Create Drive Folder",
+      "id": "fe71efbc-f133-4134-850b-f0b2dd6cb23a",
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + $('Create Drive Folder').item.json.id + '/permissions' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"role\": \"writer\",\n  \"type\": \"user\",\n  \"emailAddress\": \"{{ $('Store Onboarding Form').item.json['Store Owner Google Email'] }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        96
+      ],
+      "name": "Share Folder With Owner",
+      "id": "1f6f2b06-cd98-431e-8f7b-ee6801fd2089",
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + $('Create Drive Folder').item.json.id + '/watch' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\": \"{{ $execution.id + '-' + Date.now() }}\",\n  \"type\": \"web_hook\",\n  \"address\": \"https://tinza-n8n-641267245641.us-central1.run.app/webhook/drive-events\",\n  \"token\": \"{{ $('Create Drive Folder').item.json.id }}\",\n  \"expiration\": \"{{ (new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)).getTime() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -192,
+        32
+      ],
+      "name": "Register Drive Webhook",
+      "id": "89f8c7e8-f835-4bef-8e56-5f480d9425b4",
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tinza-flask-api-641267245641.us-central1.run.app/onboard",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"store_name\": \"{{ $('Store Onboarding Form').item.json['Store Name'] }}\",\n  \"wc_user\": \"{{ $('Store Onboarding Form').item.json['WC API Key'] }}\",\n  \"wc_pass\": \"{{ $('Store Onboarding Form').item.json['WC API Secret'] }}\",\n  \"default_status\": \"{{ $('Store Onboarding Form').item.json['Default Status'] }}\",\n  \"drive_folder_id\": \"{{ $('Create Drive Folder').item.json.id }}\",\n  \"channel_id\": \"{{ $('Register Drive Webhook').item.json.id }}\",\n  \"resource_id\": \"{{ $('Register Drive Webhook').item.json.resourceId }}\",\n  \"expires_at\": {{ $('Register Drive Webhook').item.json.expiration }},\n  \"webhook_url\": \"https://tinza-n8n-641267245641.us-central1.run.app/webhook/drive-events\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        80,
+        176
+      ],
+      "name": "Call Encryption API",
+      "id": "352bae56-45b8-4e6b-8d70-56823a0a8f97"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -2224,
+        512
+      ],
+      "id": "dd4542ae-7319-451c-9810-54ba22781b07",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE processing_queue\nSET status = CASE \n        WHEN retry_count >= 9 THEN 'failed' \n        ELSE 'pending' \n    END,\n    retry_count = retry_count + 1,\n    updated_at = NOW()\nWHERE status = 'processing'\n  AND updated_at < NOW() - INTERVAL '3 minutes';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2016,
+        512
+      ],
+      "id": "81edb5ec-84be-463d-a1ea-4ad70b05e25d",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "Fs0RWRfWwZNEg7sK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "8a694146-4ac9-408c-8a22-7b60d6078067",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        2064
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  wc.id,\n  wc.channel_id,\n  wc.resource_id,\n  wc.webhook_url,\n  s.drive_folder_id,\n  wc.expires_at,\n  s.id as store_id \nFROM webhook_channels wc \nJOIN stores s ON wc.store_id = s.id \nWHERE wc.expires_at < NOW() + INTERVAL '24 hours';",
+        "additionalFields": {}
+      },
+      "id": "185e76c7-97fd-4eff-8b29-553a28d67bd1",
+      "name": "Get Expiring Channels",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        2064
+      ],
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Fs0RWRfWwZNEg7sK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://www.googleapis.com/drive/v3/files/{{ $json.drive_folder_id }}/watch",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\": \"{{ $('Get Expiring Channels').item.json.channel_id.split('-')[0] + '-' + Date.now() }}\",\n  \"type\": \"web_hook\",\n  \"address\": \"{{ $('Get Expiring Channels').item.json.webhook_url }}\",\n  \"token\": \"{{ $('Get Expiring Channels').item.json.drive_folder_id }}\",\n  \"expiration\": \"{{ DateTime.now().plus({ days: 7 }).toMillis() }}\"\n}",
+        "options": {}
+      },
+      "id": "abc2c048-8a93-4737-9348-34d92323b6a7",
+      "name": "Renew Drive Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        352,
+        2176
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE webhook_channels\nSET \n  channel_id = '{{ $json.id }}',\n  resource_id = '{{ $json.resourceId }}',\n  expires_at = TO_TIMESTAMP({{ $json.expiration }}::BIGINT / 1000.0),\n  renewed_at = NOW()\nWHERE channel_id = '{{ $('Get Expiring Channels').item.json.channel_id }}';",
+        "additionalFields": {}
+      },
+      "id": "3d41790a-9ecf-485b-9d5f-88a3d038f4c7",
+      "name": "Update Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        816,
+        2080
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Fs0RWRfWwZNEg7sK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ '\\'' + $json.drive_folder_id + '\\' in parents and mimeType = \\'application/vnd.google-apps.folder\\' and trashed = false' }}"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name)"
+            },
+            {
+              "name": "pageSize",
+              "value": "1000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6f21a07d-3af1-4544-a569-599c5a692c9c",
+      "name": "List Batch Folders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -768,
+        912
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const storeCtx = $('Validate & Route1').first().json;\n\nif (!storeCtx.store_id) return [];\n\nconst files = $input.first().json.files || [];\nconst batchFolders = files.filter(f => !f.name.endsWith('_done'));\n\nif (batchFolders.length === 0) return [];\n\nreturn batchFolders.map(folder => ({\n  json: {\n    store_id: storeCtx.store_id,\n    batch_folder_id: folder.id,\n    batch_folder_name: folder.name,\n    drive_folder_id: storeCtx.drive_folder_id,\n    default_status: storeCtx.default_status\n  }\n}));"
+      },
+      "id": "3f143f1a-a66b-4497-9ca7-8853d7c7a678",
+      "name": "Filter Batch Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ '\\'' + $json.batch_folder_id + '\\' in parents and mimeType = \\'application/vnd.google-apps.folder\\' and trashed = false' }}"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name)"
+            },
+            {
+              "name": "pageSize",
+              "value": "1000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6275ce80-c236-4e3e-9861-5c8837b4bd17",
+      "name": "List Product Folders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -144,
+        944
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const batchCtx = $('Filter Batch Folders').item.json;\nconst files = $input.first().json.files || [];\nconst productFolders = files.filter(f => !f.name.endsWith('_done'));\n\nif (productFolders.length === 0) return [];\n\nreturn productFolders.map(folder => ({\n  json: {\n    store_id: batchCtx.store_id,\n    folder_id: folder.id,\n    folder_name: folder.name,\n    drive_folder_id: batchCtx.drive_folder_id,\n    default_status: batchCtx.default_status\n  }\n}));"
+      },
+      "id": "a4442d0f-a7e9-4921-9143-16353b3e599a",
+      "name": "Filter Product Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "471ac7d4-a2f8-4e3e-9250-b74c840e17b2",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        768,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "drive-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "8208bdd2-6ced-4392-8d61-2d423dfb7177",
+      "name": "Webhook Trigger1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1520,
+        784
+      ],
+      "webhookId": "dc293823-7eac-4f2c-8032-4ecc81b9030a"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  s.id as store_id, \n  s.wc_user, \n  s.wc_pass, \n  s.drive_folder_id, \n  s.default_status \nFROM webhook_channels wc \nJOIN stores s ON wc.store_id = s.id \nWHERE (wc.channel_id = '{{ $json.headers[\"x-goog-channel-id\"] }}' \n   OR wc.channel_id LIKE '{{ $json.headers[\"x-goog-channel-id\"].split(\"-\")[0] }}%')\n  AND s.drive_folder_id = '{{ $json.headers[\"x-goog-channel-token\"] }}' \nLIMIT 1;",
+        "options": {}
+      },
+      "id": "9ee56974-a329-4592-89a8-2e9619c57605",
+      "name": "Validate & Route1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        816
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Fs0RWRfWwZNEg7sK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO processing_queue (store_id, folder_id, folder_name, drive_folder_id, default_status)\nVALUES (\n  '{{ $json.store_id }}',\n  '{{ $json.folder_id }}',\n  '{{ $json.folder_name.replace(/'/g, \"''\") }}',\n  '{{ $json.drive_folder_id }}',\n  '{{ $json.default_status }}'\n)\nON CONFLICT (store_id, folder_id) DO NOTHING;",
+        "options": {}
+      },
+      "id": "474df504-0458-40e8-8d50-4e36ab57219c",
+      "name": "Enqueue Folders1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        464,
+        944
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Fs0RWRfWwZNEg7sK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const files = $input.item.json.files;\nconst ctx = $('Claim One Row').item.json;\n\nconst txtFile = files.find(f =>\n  f.name?.endsWith('.txt') ||\n  f.mimeType === 'application/vnd.google-apps.document' ||\n  f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'\n);\n\nconst imageFiles = files.filter(f => f.mimeType?.startsWith('image/'));\n\nif (!txtFile) {\n  throw new Error(`No text/doc file found in folder ${ctx.folder_name}. Files: ${files.map(f => f.name).join(', ')}`);\n}\nif (imageFiles.length === 0) {\n  throw new Error(`No image files found in folder ${ctx.folder_name}. Files: ${files.map(f => f.name).join(', ')}`);\n}\n\nconst cleanName = txtFile.name.replace(/\\.docx$/i, '');\n\nreturn [{\n  json: {\n    queue_id: ctx.id,\n    store_id: ctx.store_id,\n    folderId: ctx.folder_id,\n    folderName: ctx.folder_name,\n    drive_folder_id: ctx.drive_folder_id,\n    default_status: ctx.default_status,\n    txtFileId: txtFile.id,\n    txtFileName: cleanName,\n    txtMimeType: txtFile.mimeType,\n    imageFiles: imageFiles.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType }))\n  }\n}];"
+      },
+      "id": "7ec1aaad-2f0b-4c90-8753-b1fc4b171b0a",
+      "name": "Check Both Files Exist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1872,
+        1456
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ '\\'' + $json.folder_id + '\\' in parents and trashed = false' }}"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name,mimeType)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e15e59a5-664c-4b07-b3a1-abfabf7de559",
+      "name": "List Files in Folder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2176,
+        1472
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nif (items.length === 0 || !items[0].json.id) return [];\nreturn items;"
+      },
+      "id": "2c288a87-8fde-4ecb-a444-a7c591a5943d",
+      "name": "Check If Empty",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2528,
+        1424
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE processing_queue\nSET status = 'processing', updated_at = NOW()\nWHERE id = (\n  SELECT id FROM processing_queue\n  WHERE status = 'pending'\n  AND NOT EXISTS (\n    SELECT 1 FROM processing_queue WHERE status = 'processing'\n  )\n  ORDER BY created_at ASC\n  LIMIT 1\n  FOR UPDATE SKIP LOCKED\n)\nRETURNING *;",
+        "options": {}
+      },
+      "id": "c098ce20-434d-40ab-b5a3-2cd08133c13a",
+      "name": "Claim One Row",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        -2928,
+        1440
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "Fs0RWRfWwZNEg7sK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 70
+            }
+          ]
+        }
+      },
+      "id": "a48307ea-1fe8-489a-80ba-160a44efb98b",
+      "name": "Every 1 Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -3280,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tinza-flask-api-641267245641.us-central1.run.app/extract-text",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file_id",
+              "value": "={{ $json.txtFileId }}"
+            },
+            {
+              "name": "mime_type",
+              "value": "={{ $json.txtMimeType }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8d32cd39-0fed-44bd-8d24-6152dea1dfe7",
+      "name": "Extract Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1456,
+        1424
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// === Parse Unified Product LLM JSON ===\nfunction repairTruncatedJson(str) {\n  const boundaryChars = new Set([',', '{', '[', '}', ']']);\n\n  for (let end = str.length; end > 0; end--) {\n    if (end < str.length && !boundaryChars.has(str[end - 1])) continue;\n\n    let candidate = str.slice(0, end).trimEnd();\n    candidate = candidate.replace(/,+$/, '');\n    candidate = candidate.replace(/,?\\s*\"[^\"]*\"\\s*:\\s*$/, '');\n\n    const quoteCount = (candidate.match(/(?<!\\\\)\"/g) || []).length;\n    if (quoteCount % 2 !== 0) candidate += '\"';\n\n    candidate = candidate.replace(/,\\s*$/, '');\n\n    const stack = [];\n    let inStr = false, esc = false;\n    for (const ch of candidate) {\n      if (esc) { esc = false; continue; }\n      if (ch === '\\\\') { esc = true; continue; }\n      if (ch === '\"') { inStr = !inStr; continue; }\n      if (inStr) continue;\n      if (ch === '{' || ch === '[') stack.push(ch);\n      else if (ch === '}' && stack[stack.length - 1] === '{') stack.pop();\n      else if (ch === ']' && stack[stack.length - 1] === '[') stack.pop();\n    }\n    let closer = '';\n    for (let i = stack.length - 1; i >= 0; i--) closer += stack[i] === '{' ? '}' : ']';\n\n    try {\n      return JSON.parse(candidate + closer);\n    } catch (e) {\n      continue;\n    }\n  }\n  return null;\n}\n\n// 1. Grab raw text from the single LLM Chain\nconst raw = $input.first().json.text || $input.first().json.output || $input.first().json.content || '';\n\n// 2. Extract JSON object (ignoring any markdown wrappers like ```json ... ```)\nconst jsonMatch = raw.match(/\\{[\\s\\S]*\\}/);\n\nlet parsed = null;\nif (jsonMatch) {\n  try {\n    parsed = JSON.parse(jsonMatch[0]);\n  } catch (e) {\n    console.warn('Unified LLM chain: direct parse failed, attempting repair:', e.message);\n    parsed = repairTruncatedJson(jsonMatch[0]);\n  }\n}\n\nif (!parsed) {\n  throw new Error('Unified LLM chain: JSON parsing failed after repair attempt. Raw: ' + raw.substring(0, 300));\n}\n\n// 3. Clean up Tags (handle both Array and comma-separated string)\nlet tagsArray = [];\nif (Array.isArray(parsed.tags)) {\n  tagsArray = parsed.tags;\n} else if (typeof parsed.tags === 'string' && parsed.tags.trim() !== '') {\n  tagsArray = parsed.tags.split(',').map(t => t.trim());\n}\n\n// 4. Clean up Categories (ensure it is wrapped in an array)\nlet categoriesArray = [];\nif (Array.isArray(parsed.categories)) {\n  categoriesArray = parsed.categories;\n} else if (typeof parsed.categories === 'string' && parsed.categories.trim() !== '') {\n  categoriesArray = [parsed.categories.trim()];\n}\n\n// 5. Fallback logic for Title, Permalink & Short Description\nconst title = parsed.title || 'Untitled Product';\nconst permalink = parsed.permalink || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\nconst shortDescription = parsed.short_description || title;\n\n// 6. Return the unified product object\nreturn [{\n  json: {\n    title: title,\n    description: parsed.description || '',\n    short_description: shortDescription,\n    permalink: permalink,\n    categories: categoriesArray,\n    tags: tagsArray,\n    price: parsed.price || null,\n    attributes: parsed.attributes || []\n  }\n}];"
+      },
+      "id": "341f4ec9-f4b3-428a-8768-576730b9ef24",
+      "name": "Parse Attributes JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -672,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tinza-flask-api-641267245641.us-central1.run.app/upload-media",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  filename: $json.files[0].filename,\n  mimeType: $json.files[0].mimeType,\n  base64_data: $json.files[0].base64_data,\n  queue_id: $json.queue_id\n}) }}",
+        "options": {}
+      },
+      "id": "addadcda-4019-41c9-9ab0-e45df13f274c",
+      "name": "Upload Image to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        944,
+        1344
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item;\nconst buffer = await this.helpers.getBinaryDataBuffer($itemIndex, 'image');\n\nreturn {\n  json: {\n    ...item.json,\n    files: [{\n      filename: item.json.imageFileName,\n      mimeType: item.json.imageMimeType,\n      base64_data: buffer.toString('base64')\n    }]\n  }\n};"
+      },
+      "id": "d08bff37-1ce2-4102-beb1-7507f029b546",
+      "name": "Bundle to Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('Check Both Files Exist').item.json;\nconst product = $input.first().json;\n\nconst imageFiles = ctx.imageFiles;\nif (!imageFiles || imageFiles.length === 0) {\n  throw new Error('No imageFiles found in context for folder ' + ctx.folderName);\n}\n\nreturn imageFiles.map(img => ({\n  json: {\n    title: product.title,\n    description: product.description,\n    short_description: product.short_description,\n    permalink: product.permalink,\n    categories: product.categories,\n    attributes: product.attributes,\n    tags: product.tags,\n    price: product.price,\n    imageFileId: img.id,\n    imageFileName: img.name,\n    imageMimeType: img.mimeType,\n    queue_id: ctx.queue_id,\n    folderId: ctx.folderId,\n    folderName: ctx.folderName,\n    store_id: ctx.store_id,\n    drive_folder_id: ctx.drive_folder_id,\n    default_status: ctx.default_status\n  }\n}));"
+      },
+      "id": "3ec74447-1a26-4c51-82bb-738a50566fd6",
+      "name": "Split Per Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1376
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + $json.imageFileId + '?alt=media' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "image"
+            }
+          }
+        }
+      },
+      "id": "2ac0b40b-6821-4770-8c1f-8ed0a497a8f6",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        416,
+        1376
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE processing_queue\nSET status = '{{ $('Create a product1').item.json.skipped ? 'exists' : 'done' }}',\n    updated_at = NOW()\nWHERE id = '{{ $('Collect Image URLs1').item.json.queue_id }}';",
+        "options": {}
+      },
+      "id": "a028dd9b-6eb6-45ba-aac8-ab88236c330d",
+      "name": "Mark Queue Done",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        1376
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Fs0RWRfWwZNEg7sK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + $('Collect Image URLs1').item.json.folderId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ name: $('Collect Image URLs1').item.json.folderName + '_done' }) }}",
+        "options": {}
+      },
+      "id": "add37790-572c-49b1-b9b6-de409b91b435",
+      "name": "Mark as Done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2320,
+        1424
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "xhaH07whTxi5OMlV",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://tinza-flask-api-641267245641.us-central1.run.app/create-product",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.fromEntries(Object.entries({\n  store_id: $('Collect Image URLs1').item.json.store_id,\n  title: $('Collect Image URLs1').item.json.title,\n  description: $('Collect Image URLs1').item.json.description,\n  short_description: $('Collect Image URLs1').item.json.short_description,\n  permalink: $('Collect Image URLs1').item.json.permalink,\n  folder_name: $('Collect Image URLs1').item.json.folderName,\n  default_status: $('Collect Image URLs1').item.json.default_status,\n  categories: $('Collect Image URLs1').item.json.categories || [],\n  tags: $('Collect Image URLs1').item.json.tags || [],\n  price: $('Collect Image URLs1').item.json.price,\n  attributes: $('Collect Image URLs1').item.json.attributes,\n  images: $('Collect Image URLs1').item.json.images\n}).filter(([k, v]) => v !== null && v !== undefined))) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "9bc71c1e-bad5-4539-99e8-fbc61c808258",
+      "name": "Create a product1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1472,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allResponses = $input.all();\nconst meta = $('Bundle to Base64').first().json; // product metadata is identical on every item\n\nconst allUrls = allResponses.flatMap(item => item.json.urls || []);\n\nconst payload = {\n  title: meta.title,\n  description: meta.description,\n  short_description: meta.short_description,\n  categories: meta.categories,\n  sku: meta.sku,\n  permalink: meta.permalink,\n  attributes: meta.attributes,\n  tags: meta.tags,\n  price: meta.price,\n  images: allUrls.map(src => ({ src })),\n  queue_id: meta.queue_id,\n  folderId: meta.folderId,\n  folderName: meta.folderName,\n  store_id: meta.store_id,\n  drive_folder_id: meta.drive_folder_id,\n  default_status: meta.default_status\n};\n\nreturn [{ json: payload }];"
+      },
+      "id": "6f10f47e-c306-4b98-94ff-d0a77ae44a84",
+      "name": "Collect Image URLs1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "openai/gpt-oss-120b",
+          "mode": "id"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1040,
+        1632
+      ],
+      "id": "a170bdee-b027-43bb-a334-ac4311ad8486",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "qiOyBGypzr6u0sBT",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Output ONLY raw JSON. Do NOT use markdown code blocks (no ``` or ```json). No explanations, no comments. Use \"\" or [] or null for missing data.\n\nSCHEMA:\n{\n\"title\": \"\",\n\"description\": \"\",\n\"short_description\": \"\",\n\"permalink\": \"\",\n\"categories\": [],\n\"tags\": [],\n\"price\": null,\n\"attributes\": []\n}\nTITLE:\nExtract the FULL 'optimized title' verbatim, exactly as written, including all text after every comma. \nThe title ends only at the line break that precedes the description paragraph — do not stop at the \nfirst comma, do not shorten it, and do not treat comma-separated phrases as separate items.\nIf no optimized title exists, extract the entire main file title in the same way: full text, \nverbatim, up to the line break.\n\nExample:\nSource: \"Patina Brass Towel Bar, Handcrafted Brass Kitchen Towel Rail, Handmade Vintage Brass Bathroom Towel Bar\"\nCorrect output: \"Patina Brass Towel Bar, Handcrafted Brass Kitchen Towel Rail, Handmade Vintage Brass Bathroom Towel Bar\"\nWrong output: \"Patina Brass Towel Bar\" ← truncated, this is NOT acceptable\n\nDESCRIPTION:\nInclude ALL descriptive text, marketing copy, and features. DO NOT summarize or omit.Format as clean HTML: Wrap intro text in a <p> tag. Format distinct features/specs as <li> within a <ul>.\n\nSHORT DESCRIPTION & PERMALINK:\nBrief 1-2 sentence product teaser.\nURL-friendly slug for the product\n\n\nCATEGORY RULES: \nPick exactly one category from the closed list that matches the PRODUCT ITSELF. Never output a category not in the list. Never repeat the list back.\n\nVALID CATEGORIES (closed list — no other value allowed):\n[\"Bathroom Sinks\", \"Bathroom Faucets\", \"Bathtubs\", \"Wall-Mounted Mirrors\", \"Bathroom Mirrors\", \"Bathroom Wall Sconces\", \"Bathroom accessories\", \"Hand Towel Rings\", \"Shelving\", \"Shower Rods\", \"Shower systems\", \"Shower head\", \"Soap Dispensers and Dishes\", \"Toilet Brush Holders\", \"Toilet Paper Holders\", \"Towel Bars and Hooks\", \"Towel Racks\", \"Waste Bins\", \"Towel warmers\", \"Kitchen Sinks\", \"Kitchen Faucets\", \"Kitchen Lighting\", \"Pot Racks\", \"Kitchen accessories\", \"Kitchen tables\", \"Floor Lamps\", \"Pendant Lights\", \"Table Lamps\", \"Wall Sconces\", \"Floor Mirrors\", \"Hanging Strap\", \"Mirrors Pivot Mirrors\", \"Accessories\", \"Outdoor Wall Sconces\", \"Outdoor Pendant Lights\", \"Tables\", \"Outdoor Faucets\"]\n\nPROCESS — apply in order, stop at first match:\nSTEP 1 — TITLE: If the title contains the COMPLETE, EXACT text of a valid category from the list, not a partial word or fragment of it use that category. A partial match does NOT count.Ignore conflicting category names found elsewhere.\nSTEP 2 — TEXT MATCH: If not, search the document for a category string that describes what the product ITSELF is — not a related, compatible,\nor cross-sell item. If more than one category string appears, use the longest/most specific one (e.g. \"Bathroom Wall Sconces\" over \"Wall Sconces\"; \"Outdoor Pendant Lights\" over \"Pendant Lights\").\nSTEP 3 — DEDUCE (mandatory fallback, always produces an answer): If no category string applies, determine what the product fundamentally is (type, material, room, install method) and pick the closest valid category.\n\nHARD CONSTRAINTS:\n- Output copied character-for-character from the list. No translation, pluralizing, singularizing, merging, or paraphrasing.\n- Never invent a category, even if none fit well — pick the closest listed one.It must never be empty\n- Output exactly one category. Nothing else.\n\nVariants RULES:\nDo not repeat the onesthat were extracted in description \nExtract customer-selectable variants (multiple sizes/options).\nDO NOT extract single-item static measurements (those go in description).\nUse consistent symbols (\"×\" not \"x\").\nState units once per option. Strip filler words (\"size:\", \"color:\").\nOrder sizes smallest to largest. Keep values ultra-short.\n\nPRICING:\nNumbers adjacent to an option (e.g., \"4 in 1000\") equal the explicit price.\nFor a simple product , a number adjacent to a currency (MAD, USD, DH, $, €, etc.) anywhere in the document is that product's price.\nIf no explicit price exists for an option or product, use null.\nEXAMPLE INPUT:\nVintage Faucet\nDimensions:\n4 in (10 cm) 1000\n8 in (20 cm) 3889\n8.5 in (22 cm)\n\nEXAMPLE OUTPUT:\n{\n\"attributes\": [\n{\n\"name\": \"Dimensions\",\n\"options\": [\n{ \"value\": \"4 in (10 cm)\", \"price\": \"1000\" },\n{ \"value\": \"8 in (20 cm)\", \"price\": \"3889\" },\n{ \"value\": \"8.5 in (22 cm)\", \"price\": null }\n]\n}\n]\n}\nDOCUMENT TO PROCESS:\n{{ $json.text }}"
+            }
+          ]
+        }
+      },
+      "id": "cdefee8f-aa33-4d6a-a044-091ac3be6435",
+      "name": "LLM Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        -1152,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "acde075a-0daa-4319-8324-ae12686ca7ce",
+              "leftValue": "={{ $('Create a product1').item.json.skipped || false }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2000,
+        1376
+      ],
+      "id": "ec55a8fb-568d-40c9-a25a-9f71f0efe3c6",
+      "name": "Check If Skipped"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Store Onboarding Form": {
+      "main": [
+        [
+          {
+            "node": "Create Drive Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Drive Folder": {
+      "main": [
+        [
+          {
+            "node": "Share Folder With Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share Folder With Owner": {
+      "main": [
+        [
+          {
+            "node": "Register Drive Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register Drive Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call Encryption API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "Get Expiring Channels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Expiring Channels": {
+      "main": [
+        [
+          {
+            "node": "Renew Drive Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Renew Drive Webhook": {
+      "main": [
+        [
+          {
+            "node": "Update Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Batch Folders": {
+      "main": [
+        [
+          {
+            "node": "Filter Batch Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Batch Folders": {
+      "main": [
+        [
+          {
+            "node": "List Product Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Product Folders": {
+      "main": [
+        [
+          {
+            "node": "Filter Product Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Product Folders": {
+      "main": [
+        [
+          {
+            "node": "Enqueue Folders1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Validate & Route1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Route1": {
+      "main": [
+        [
+          {
+            "node": "List Batch Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enqueue Folders1": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Both Files Exist": {
+      "main": [
+        [
+          {
+            "node": "Extract Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Files in Folder": {
+      "main": [
+        [
+          {
+            "node": "Check Both Files Exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Empty": {
+      "main": [
+        [
+          {
+            "node": "List Files in Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim One Row": {
+      "main": [
+        [
+          {
+            "node": "Check If Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 1 Minute": {
+      "main": [
+        [
+          {
+            "node": "Claim One Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text": {
+      "main": [
+        [
+          {
+            "node": "LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Attributes JSON": {
+      "main": [
+        [
+          {
+            "node": "Split Per Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Image to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Collect Image URLs1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bundle to Base64": {
+      "main": [
+        [
+          {
+            "node": "Upload Image to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Per Image": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Bundle to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Queue Done": {
+      "main": [
+        [
+          {
+            "node": "Check If Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a product1": {
+      "main": [
+        [
+          {
+            "node": "Mark Queue Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Image URLs1": {
+      "main": [
+        [
+          {
+            "node": "Create a product1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Parse Attributes JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Skipped": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Mark as Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "a155a00f-1e07-48d6-a53b-84f3cbc74741",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "21c5dde2379be49a7052a1ddc25c6edfe0603e000b59ccdafe77ec99e84b254d"
+  },
+  "id": "nKWXBq0mF2tCK8Ar",
+  "tags": []
+}

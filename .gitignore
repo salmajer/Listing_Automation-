@@ -1,0 +1,12 @@
+# Service account key - never commit
+service-account.json
+
+# Environment variables
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+
+
