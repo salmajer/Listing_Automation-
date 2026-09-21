@@ -3,6 +3,10 @@
 Automated multi-store product upload pipeline: n8n orchestrates the workflow, a Flask API on Cloud Run proxies WooCommerce credentials, Supabase holds routing/state data, and Google Drive triggers uploads per store.
 
 ---
+## Demos
+
+<video src="https://github.com/user-attachments/assets/cce098c0-6f5c-4d49-8cf9-53bdc5a5c226" controls width="100%"></video>
+
 
 ## Table of Contents
 1. [Prerequisites](#1-prerequisites)
@@ -273,7 +277,7 @@ gcloud run deploy tinza-n8n \
   --cpu=1 \
   --memory=2Gi \
   --no-cpu-throttling \
-  --concurrency=1 \
+  --concurrency=1 \=
   --min-instances=1 \
   --max-instances=1 \
   --timeout=600 \

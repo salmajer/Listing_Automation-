@@ -321,31 +321,6 @@ def upload_media():
 
 @app.route('/create-product', methods=['POST'])
 def create_product():
-    """
-    Create a WooCommerce product from structured data produced by the
-    upstream LLM extraction pipeline.
-
-    Expects JSON with at least: store_id, title.
-
-    High-level flow:
-      1. Look up and decrypt the store's WooCommerce credentials.
-      2. Normalize incoming data: decide simple vs. variable product type,
-         reformat attributes/tags/categories into WooCommerce's expected
-         shapes, and sort images so anything named "main" goes first.
-      3. If a SKU is provided and a product with that SKU already exists on
-         the store, skip creation entirely.
-      4. Create the product WITHOUT the SKU first. This is a workaround
-         ("ghost SKU" pattern).
-      5. Attempt to PATCH the SKU onto the newly created product. If that
-         fails (e.g. another process claimed the SKU in the meantime),
-         delete the just-created product and report the conflict rather
-         than leaving an orphaned, SKU-less product behind.
-      6. For variable products, build every combination of attribute
-         options (Cartesian product) and create each as a WooCommerce
-         product variation, in parallel.
-
-    Returns the new product's id and permalink on success.
-    """
     data = request.get_json(force=True, silent=True)
     
     if not data:
